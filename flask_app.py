@@ -1,79 +1,68 @@
-
-# A very simple Flask Hello World app for you to get started with...
-import pymysql
-from flask import Flask
-from flask import request, jsonify
-from flaskext.mysql import MySQL
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
-mysql = MySQL()
-# MySQL configurations
-app.config['MYSQL_DATABASE_USER'] = 'awanpc'
-app.config['MYSQL_DATABASE_PASSWORD'] = 'awan1234'
-app.config['MYSQL_DATABASE_DB'] = 'awanpc$buku'
-app.config['MYSQL_DATABASE_HOST'] = 'awanpc.mysql.pythonanywhere-services.com'
-mysql.init_app(app)
+SQLALCHEMY_DATABASE_URI = "mysql+mysqlconnector://{username}:{password}@{hostname}/{databasename}".format(
+    username="awanpc",
+    password="awan1234",
+    hostname="awanpc.mysql.pythonanywhere-services.com",
+    databasename="awanpc$buku",
+)
+app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
+app.config["SQLALCHEMY_POOL_RECYCLE"] = 299
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+db=SQLAlchemy(app)
+
+class Books(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100))
+    author = db.Column(db.String)
+    first_sentence = db.Column(db.String)
+    published = db.Column(db.String)
+
+    def __init__(self, title, author, first_sentence, published):
+        self.title = title
+        self.author = author
+        self.first_sentence = first_sentence
+        self.published = published
+
+    def serialize(self):
+        return {"id": self.id,
+                "title": self.title,
+                "author": self.author,
+                "first_sentence": self.first_sentence,
+                "published": self.published}
 
 @app.route('/', methods=['GET'])
 def home():
     return '<h1>Web Service Unisbank !</h1><p>Latihan membuat API dengan Python dan Flask</p>'
 
 @app.route('/books/', methods=['GET'])
-def index():
-    try:
-        conn = mysql.connect()
-        cursor = conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute("SELECT * FROM books")
-        rows = cursor.fetchall()
-        res = jsonify(rows)
-        res.status_code = 200
-        return res
-    except Exception as e:
-        print(e)
-    finally:
-        cursor.close()
-        conn.close()
+def books():
+    return jsonify({'developers': list(map(lambda dev: dev.serialize(), Books.query.all()))})
 
-@app.route('/create', methods=['POST'])
-def create_books():
-	try:
-		_json = request.json
-		_title = _json['title']
-		_author = _json['author']
-		_first_sentence = _json['first_sentence']
-		_published = _json['published']
+@app.route('/books/<int:id>/')
+def get_books(id):
+    return jsonify({'developer': Books.query.get(id).serialize()})
 
-		# insert record in database
-		sqlQuery = "INSERT INTO books(title) VALUES(%s)"
-		data = (_title)
-		conn = mysql.connect()
-		cursor = conn.cursor()
-		cursor.execute(sqlQuery, data)
-		conn.commit()
-		res = jsonify('Books created successfully.')
-		res.status_code = 200
-		return res
-	except Exception as e:
-		print(e)
-	finally:
-		cursor.close()
-		conn.close()
+@app.route('/books/', methods=['POST'])
+def add_books():
+    title = request.json['title']
+    author = request.json['author']
+    first_sentence = request.json['first_sentence']
+    published = request.json['published']
 
-@app.route('/books/<int:books_id>')
-def books(books_id):
-	try:
-		conn = mysql.connect()
-		cursor = conn.cursor(pymysql.cursors.DictCursor)
-		cursor.execute("SELECT * FROM books WHERE id=%s", books_id)
-		row = cursor.fetchone()
-		res = jsonify(row)
-		res.status_code = 200
+    dev = Books(title, author, first_sentence, published)
 
-		return res
-	except Exception as e:
-		print(e)
-	finally:
-		cursor.close()
-		conn.close()
+    db.session.add(dev)
+    db.session.commit()
+    return jsonify({'Buku di Tambahkan': dev.serialize()}), 201
+
+@app.route('/books/delete/<int:id>/')
+def delete_books(id):
+    db.session.delete(Books.query.get(id))
+    db.session.commit()
+    return jsonify({'result': True})
