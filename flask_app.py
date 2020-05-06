@@ -1,46 +1,79 @@
-# A very simple Flask Hello World app for you to get started with...
 
+# A very simple Flask Hello World app for you to get started with...
+import pymysql
 from flask import Flask
 from flask import request, jsonify
+from flaskext.mysql import MySQL
 
 app = Flask(__name__)
 app.config["DEBUG"] = True
+mysql = MySQL()
+# MySQL configurations
+app.config['MYSQL_DATABASE_USER'] = 'awanpc'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'awan1234'
+app.config['MYSQL_DATABASE_DB'] = 'awanpc$buku'
+app.config['MYSQL_DATABASE_HOST'] = 'awanpc.mysql.pythonanywhere-services.com'
+mysql.init_app(app)
 
-books = [
-    {'id': 0,
-     'title': 'A Fire Upon the Deep',
-     'author': 'Vernor Vinge',
-     'first_sentence': 'The coldsleep itself was dreamless.',
-     'year_published': '1992'},
-    {'id': 1,
-     'title': 'The Ones Who Walk Away From Omelas',
-     'author': 'Ursula K. Le Guin',
-     'first_sentence': 'With a clamor of bells that set the swallows soaring, the Festival of Summer came to the city Omelas, bright-towered by the sea.',
-     'published': '1973'},
-    {'id': 2,
-     'title': 'Dhalgren',
-     'author': 'Samuel R. Delany',
-     'first_sentence': 'to wound the autumnal city.',
-     'published': '1975'}
-]
 
 @app.route('/', methods=['GET'])
 def home():
     return '<h1>Web Service Unisbank !</h1><p>Latihan membuat API dengan Python dan Flask</p>'
 
-@app.route('/api/v1/resources/books/all', methods=['GET'])
-def api_all():
-    return jsonify(books)
+@app.route('/books/', methods=['GET'])
+def index():
+    try:
+        conn = mysql.connect()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("SELECT * FROM books")
+        rows = cursor.fetchall()
+        res = jsonify(rows)
+        res.status_code = 200
+        return res
+    except Exception as e:
+        print(e)
+    finally:
+        cursor.close()
+        conn.close()
 
-@app.route('/api/v1/resources/books', methods=['GET'])
-def api_id():
-    if 'id' in request.args:
-        id = int(request.args['id'])
-    else:
-        return "Error: No id field provided. Please specify an id."
-    results = []
+@app.route('/create', methods=['POST'])
+def create_books():
+	try:
+		_json = request.json
+		_title = _json['title']
+		_author = _json['author']
+		_first_sentence = _json['first_sentence']
+		_published = _json['published']
 
-    for book in books:
-        if book['id'] == id:
-            results.append(book)
-    return jsonify(results)
+		# insert record in database
+		sqlQuery = "INSERT INTO books(title) VALUES(%s)"
+		data = (_title)
+		conn = mysql.connect()
+		cursor = conn.cursor()
+		cursor.execute(sqlQuery, data)
+		conn.commit()
+		res = jsonify('Books created successfully.')
+		res.status_code = 200
+		return res
+	except Exception as e:
+		print(e)
+	finally:
+		cursor.close()
+		conn.close()
+
+@app.route('/books/<int:books_id>')
+def books(books_id):
+	try:
+		conn = mysql.connect()
+		cursor = conn.cursor(pymysql.cursors.DictCursor)
+		cursor.execute("SELECT * FROM books WHERE id=%s", books_id)
+		row = cursor.fetchone()
+		res = jsonify(row)
+		res.status_code = 200
+
+		return res
+	except Exception as e:
+		print(e)
+	finally:
+		cursor.close()
+		conn.close()
