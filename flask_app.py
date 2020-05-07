@@ -46,9 +46,9 @@ def books():
 
 @app.route('/books/<int:id>/')
 def get_books(id):
-    return jsonify({'developer': Books.query.get(id).serialize()})
+    return jsonify({'Buku': Books.query.get(id).serialize()})
 
-@app.route('/books/', methods=['POST'])
+@app.route('/books', methods=['POST'])
 def add_books():
     title = request.json['title']
     author = request.json['author']
@@ -61,8 +61,25 @@ def add_books():
     db.session.commit()
     return jsonify({'Buku di Tambahkan': dev.serialize()}), 201
 
-@app.route('/books/delete/<int:id>/')
+@app.route('/books/<int:id>', methods=['DELETE'])
 def delete_books(id):
     db.session.delete(Books.query.get(id))
     db.session.commit()
     return jsonify({'result': True})
+
+@app.route('/books/<int:id>/', methods=['PUT'])
+def update_books(id):
+    dev = Books.query.get(id)
+
+    title = request.json['title']
+    author = request.json['author']
+    first_sentence = request.json['first_sentence']
+    published = request.json['published']
+
+    dev.title = title
+    dev.author = author
+    dev.first_sentence = first_sentence
+    dev.published = published
+
+    db.session.commit()
+    return jsonify({'dev': dev.serialize()})
