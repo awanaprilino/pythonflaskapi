@@ -42,7 +42,7 @@ def home():
 
 @app.route('/books/', methods=['GET'])
 def books():
-    return jsonify({'developers': list(map(lambda dev: dev.serialize(), Books.query.all()))})
+    return jsonify({'Books': list(map(lambda dev: dev.serialize(), Books.query.all()))})
 
 @app.route('/books/<int:id>/')
 def get_books(id):
